@@ -1,1 +1,169 @@
-test
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Dice.ag Fairness Verification</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+        integrity="sha512-wnea99uKIC3TJF7v4eKk4Y+lMz2Mklv18+r4na2Gn1abDRPPOeef95xTzdwGD9e6zXJBteMIhZ1+68QC5byJZw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"
+        integrity="sha512-E8QSvWZ0eCLGk4km3hxSsNmGWbLtSCSUcewDQPQWZF6pEU8GlT8a5fF32wOl1i8ftdMhssTrF/OhyGWwonTcXA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <style>
+        body {
+            background-color: #301c7c;
+        }
+    </style>
+
+    <script>
+        function hexdec(hexString) {
+            //  discuss at: https://locutus.io/php/hexdec/
+            // original by: Philippe Baumann
+            //   example 1: hexdec('that')
+            //   returns 1: 10
+            //   example 2: hexdec('a0')
+            //   returns 2: 160
+            hexString = (hexString + '').replace(/[^a-f0-9]/gi, '')
+            return parseInt(hexString, 16)
+        }
+
+        function formatNumber(num) {
+            var ex = 2;
+            var p = Math.pow(10, ex);
+            //toFixed的精确度会受9999的影响
+            return (Math.floor((Number(num) * p).toFixed(ex)) / p).toFixed(ex);
+        }
+
+        function bcdiv(arg1, arg2) {
+            var t1 = 0, t2 = 0, r1, r2;
+            try { t1 = arg1.toString().split(".")[1].length } catch (e) { }
+            try { t2 = arg2.toString().split(".")[1].length } catch (e) { }
+            with (Math) {
+                r1 = Number(arg1.toString().replace(".", ""))
+                r2 = Number(arg2.toString().replace(".", ""))
+                return formatNumber((r1 / r2) * pow(10, t2 - t1));
+            }
+        }
+
+        function bcmod(arg1, arg2) {
+            with (Math) {
+                r1 = floor(arg1)
+                r2 = floor(arg2)
+                return this.formatNumber((r1 % r2));
+            }
+        }
+
+
+        function rollDice(server_seed_hash, server_seed, secret) {
+            var server_seed_hash_check = CryptoJS.SHA256(server_seed).toString();
+            var roll_hash = CryptoJS.HmacSHA512(server_seed, secret).toString();
+
+            if (server_seed_hash !== server_seed_hash_check) {
+                return 'Hash does not match!';
+            }
+
+            for (i = 0; i < roll_hash.length; i += 5) {
+                var sub = roll_hash.substr(i, 5);
+                if (sub.length == 5) {
+                    var decimal_number = hexdec(sub);
+
+                    if (decimal_number < 1000000) {
+                        var decimal_fourc = bcmod(decimal_number, 10000);
+                        var final_decimal = bcdiv(decimal_fourc, 100, 2);
+                        return final_decimal;
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
+        function verify() {
+            if (document.getElementById("server-seed-hash").value.length === 0) {
+                return;
+            }
+
+            if (document.getElementById("server-seed").value.length === 0) {
+                return;
+            }
+
+            if (document.getElementById("client-seed").value.length === 0) {
+                return;
+            }
+
+            if (document.getElementById("nonce").value.length === 0) {
+                return;
+            }
+
+            document.getElementById("rolled").innerHTML = rollDice(document.getElementById("server-seed-hash").value, document.getElementById("server-seed").value, document.getElementById("client-seed").value + "_" + document.getElementById("nonce").value)
+        }
+
+        window.addEventListener("load", function () {
+            document.getElementById("verify").addEventListener("click", function (event) {
+                verify();
+                event.preventDefault();
+            }, false);
+        });
+    </script>
+</head>
+
+<body>
+    <div class="overflow-y-auto overflow-x-hidden fixed right-0 left-0 top-0 md:top-4 z-50 justify-center items-center md:h-modal h-full md:inset-0 flex"
+        aria-modal="true" role="dialog">
+        <div class="relative w-full md:max-w-2xl h-full md:h-auto bg-indigo-600 md:bg-inherit">
+            <!-- Modal content -->
+            <div class="relative rounded-lg sm:shadow">
+                <!-- Modal header -->
+                <div class="flex justify-between items-start p-5 sm:rounded-t border-b bg-indigo-500 border-indigo-700">
+                    <h3 class="text-xl font-semibold text-white lg:text-2xl">
+                        Dice.ag Fairness Verification
+                    </h3>
+                </div>
+                <!-- Modal body -->
+                <div
+                    class="p-6 space-y-6 bg-indigo-600 text-gray-smooth sm:border-l sm:border-r sm:border-b sm:border-indigo-700 overscroll-none">
+                    <p class="text-base leading-relaxed">
+                    <form>
+                        <label class="block text-white text-md font-bold mb-2" for="server-seed-hash">
+                            Server Seed Hash
+                        </label>
+                        <input type="text" id="server-seed-hash"
+                            class="rounded-lg bg-gray-50 border block w-full px-4 py-2 text-gray-700 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off" placeholder="Server seed hash..."><br>
+                        <label class="block text-white text-md font-bold mb-2" for="server-seed">
+                            Server Seed
+                        </label>
+                        <input type="text" id="server-seed"
+                            class="rounded-lg bg-gray-50 border block w-full px-4 py-2 text-gray-700 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                            autocomplete="off" placeholder="Server seed..."><br>
+                        <label class="block text-white text-md font-bold mb-2" for="client-seed">
+                            Client Seed
+                        </label>
+                        <input type="text"
+                            class="rounded-lg bg-gray-50 border block w-full px-4 py-2 text-gray-700 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                            id="client-seed" autocomplete="off" placeholder="Client seed..."><br>
+                        <label class="block text-white text-md font-bold mb-2" for="nonce">
+                            Nonce
+                        </label>
+                        <input type="text"
+                            class="rounded-lg bg-gray-50 border block w-full px-4 py-2 text-gray-700 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                            id="nonce" autocomplete="off" placeholder="0"><br>
+                    </form>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div> <button type="button" id="verify"
+                                class="inline-flex items-center px-6 py-3.5 font-semibold leading-6 text-md shadow rounded-md text-white bg-indigo-500 hover:bg-indigo-700 transition ease-in-out duration-150">Verify</button>
+                        </div>
+                        <div><span id="rolled" class="text-white text-2xl float-right">00.00</span></div>
+                    </div>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
